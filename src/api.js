@@ -27,7 +27,8 @@ function admins(env) {
 async function who(request, env) {
   const m = (request.headers.get("cookie") || "").match(/(?:^|;\s*)tik=([^;]+)/);
   if (!m || !env.SESSION_SECRET) return null;
-  const [name, exp, sig] = decodeURIComponent(m[1]).split(".");
+  const parts = decodeURIComponent(m[1]).split(".");
+  const sig = parts.pop(), exp = parts.pop(), name = parts.join("."); // name may be an email with dots
   if (!name || !exp || !sig || Number(exp) < Date.now() / 1000) return null;
   if (!same(sig, await hmac(env.SESSION_SECRET, `${name}.${exp}`))) return null;
   return admins(env).some(a => a.name === name) ? name : null;
@@ -64,7 +65,7 @@ export async function onRequest({ request, env, params }) {
 
   if (path === "login" && method === "POST") {
     const body = await request.json().catch(() => ({}));
-    const name = clip(body.name, 40).toLowerCase(), pass = String(body.password || "");
+    const name = clip(body.name, 120).toLowerCase(), pass = String(body.password || "");
     const ok = admins(env).find(a => a.name === name && same(a.pass, pass));
     if (!ok || !env.SESSION_SECRET) { await new Promise(r => setTimeout(r, 600)); return json({ error: "bad login" }, 401); }
     const exp = Math.floor(Date.now() / 1000) + 30 * DAY;

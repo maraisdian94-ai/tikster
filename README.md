@@ -14,7 +14,7 @@ Runs as a Cloudflare Worker (free) with static assets and a D1 database.
 Build command: none. Deploy command: `npx wrangler deploy`. Root directory: `/`.
 
 ## Secrets (Worker > Settings > Variables and Secrets, type Secret)
-- `ADMIN_USERS` = `sam:password1,mamma:password2` (name:password pairs, comma separated)
+- `ADMIN_USERS` = `sam:password1,mamma:password2` (name or email:password pairs, comma separated)
 - `SESSION_SECRET` = any long random string
 
 Changing a password: edit `ADMIN_USERS` and click Deploy. Changing `SESSION_SECRET` signs everyone out.
