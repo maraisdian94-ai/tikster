@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="af">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TikSTER</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Schibsted+Grotesk:wght@700;800&display=swap" rel="stylesheet">
+<style>
+/* VOICE: calm, friendly, practical; a staffroom notice board a busy typist can read at a glance.
+   IDEA: the exam-paper tracking sheet pinned outside the typing office.
+   PICTURE: the progress strip and the list of papers itself, at the top.
+   COLOUR and TYPE: school colours: blue header band with a yellow rule, white ground, yellow for Typing and selected filters, green for Collected; Schibsted Grotesk titles, Atkinson Hyperlegible body.
+   LAYOUT: title + progress strip, status tiles that filter, then search and the list; one column on phones. */
+:root{color-scheme:light dark;
+--bg:light-dark(#ffffff,#0f1626);--ink:light-dark(#14213d,#e8edf7);--mute:light-dark(#5a6478,#9aa6bd);
+--line:light-dark(#d6deef,#26324a);--panel:light-dark(#eef3fc,#16203a);--blue:light-dark(#0b3d91,#7aa2ff);
+--school:light-dark(#0b3d91,#0a2a63);--gold:#ffcc1a;--btn:light-dark(#0b3d91,#ffcc1a);--btnink:light-dark(#ffffff,#0a1a3d);
+--s0:light-dark(#c7cdd9,#4a5672);--s1:#ffcc1a;--s2:light-dark(#2f6fe0,#5b8def);--s3:light-dark(#16a34a,#34c46a);
+--red:light-dark(#b42318,#ff8a80)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 "Atkinson Hyperlegible",system-ui,sans-serif;overflow-x:clip}
+h1,h2{font-family:"Schibsted Grotesk",system-ui,sans-serif;line-height:1.05;margin:0;text-wrap:balance}
+h1{font-size:clamp(32px,5vw,46px);font-weight:800}
+h2{font-size:22px}
+.band{padding:clamp(22px,4vw,48px) max(5vw,16px);max-width:1240px;margin:0 auto}
+.hero{background:var(--school);color:#fff;border-bottom:6px solid var(--gold)}
+.hero .band{padding-bottom:clamp(18px,3vw,30px)}
+.hero h1{color:#fff}.hero h1 b{color:var(--gold);font-weight:800}
+.hero .sub,.hero .big small{color:#c9d6f2}
+.acct{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:flex-end;margin-top:12px;color:#c9d6f2;font-size:14px}
+button.onblue{background:transparent;color:#fff;border-color:rgb(255 255 255 / .5);min-height:40px;padding:6px 14px;font-size:15px}
+.err{color:var(--red);font-size:15px;margin:0;min-height:1.2em}
+button.link{all:unset;cursor:pointer;color:var(--blue);text-decoration:underline;font-size:15px;justify-self:start}
+.hero .strip{background:rgb(255 255 255 / .18);margin-bottom:0}
+main.band{padding-top:22px}
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:end;justify-content:space-between}
+.sub{color:var(--mute);margin:6px 0 0}
+.big{font-family:"Schibsted Grotesk",sans-serif;font-weight:800;font-size:clamp(30px,5vw,44px);white-space:nowrap}
+.big small{font-size:17px;font-weight:700;color:var(--mute)}
+.strip{display:flex;height:18px;border-radius:9px;overflow:hidden;background:var(--panel);margin:18px 0 20px}
+.strip i{display:block;height:100%;transition:width .5s}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.tile{all:unset;cursor:pointer;border:2px solid var(--line);border-radius:12px;padding:12px 14px;min-height:44px;display:flex;flex-direction:column;gap:2px}
+.tile b{font-size:28px;font-family:"Schibsted Grotesk",sans-serif;line-height:1}
+.tile span{display:flex;align-items:center;gap:8px;color:var(--mute);font-size:15px}
+.tile[aria-pressed=true]{border-color:var(--gold);background:var(--panel);box-shadow:inset 0 -4px 0 var(--gold)}
+.tile:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.dot{width:12px;height:12px;border-radius:50%;flex:none;display:inline-block}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:22px 0 12px}
+input,select,textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:2px solid var(--line);border-radius:10px;padding:9px 12px;min-height:44px}
+#q{flex:1 1 260px}
+button{font:inherit;font-size:16px;font-weight:700;min-height:44px;padding:8px 16px;border-radius:10px;border:2px solid var(--btn);background:var(--btn);color:var(--btnink);cursor:pointer}
+button.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+button.danger{background:transparent;color:var(--red);border-color:var(--red)}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:14px;color:var(--mute);font-weight:700;padding:8px 10px;border-bottom:2px solid var(--line)}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.subj{font-weight:700}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border-radius:999px;background:var(--panel);font-weight:700;font-size:15px;white-space:nowrap}
+td select{min-height:40px;padding:6px 10px}
+.note{color:var(--mute);font-size:15px}
+.empty{padding:36px 16px;text-align:center;color:var(--mute);border:2px dashed var(--line);border-radius:12px}
+.msg{padding:10px 14px;border-radius:10px;background:var(--panel);margin:0 0 12px}
+.msg.err{color:var(--red)}
+.when{color:var(--mute);font-size:14px;white-space:nowrap}
+.sheet{position:fixed;inset:0;background:rgb(0 0 0 / .45);display:none;align-items:center;justify-content:center;padding:16px;z-index:5}
+.sheet.on{display:flex}
+.card{background:var(--bg);border-radius:16px;padding:22px;width:min(520px,100%);max-height:92vh;overflow:auto;display:grid;gap:12px}
+.card label{display:grid;gap:4px;font-weight:700;font-size:15px}
+.row{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end}
+.row .grow{margin-right:auto}
+.hint{color:var(--mute);font-size:14px;margin:0}
+textarea{min-height:180px;resize:vertical}
+.foot{color:var(--mute);font-size:14px}
+@media(max-width:700px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){table{font-size:15px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px;border-bottom:1px solid var(--line)}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:6.5em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:6em;margin-inline-start:-6.5em;color:var(--mute);font-size:14px}.stack td:empty{display:none}}
+@media(prefers-reduced-motion:reduce){.strip i{transition:none}}
+</style>
+<script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true})</script>
+</head>
+<body>
+<header class="hero"><div class="band">
+  <div class="top">
+    <div>
+      <h1>Tik<b>STER</b></h1>
+      <p class="sub" id="lede">Waar elke vraestel in die tikry is.</p>
+    </div>
+    <div class="big" id="big">–<small></small></div>
+  </div>
+  <div class="acct"><span id="who"></span><button id="login" class="onblue">Admin: meld aan</button></div>
+  <div class="strip" id="strip" aria-hidden="true"></div>
+</div></header>
+<main class="band">
+  <div class="tiles" id="tiles"></div>
+
+  <div class="bar">
+    <input id="q" type="search" placeholder="Soek ’n onderwyser of vak" aria-label="Soek ’n onderwyser of vak">
+    <select id="grade" aria-label="Graad"><option value="">Alle grade</option></select>
+    <button id="add" hidden>Voeg vraestel by</button>
+    <button id="bulk" class="ghost" hidden>Voeg baie by</button>
+  </div>
+  <div id="note"></div>
+  <div id="list"><div class="empty">Laai die vraestelle…</div></div>
+  <p class="foot" id="foot"></p>
+</main>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="ft">
+  <form class="card" id="form">
+    <h2 id="ft">Voeg ’n vraestel by</h2>
+    <label>Vak<input id="f-subject" required maxlength="80" placeholder="bv. Wiskunde Vraestel 1"></label>
+    <label>Onderwyser<input id="f-teacher" required maxlength="80" placeholder="bv. Mev. Botha"></label>
+    <label>Graad<input id="f-grade" required maxlength="10" list="grades" placeholder="bv. 10"></label>
+    <label>Status<select id="f-status"></select></label>
+    <label>Nota (opsioneel)<input id="f-note" maxlength="140" placeholder="bv. Wag vir diagramme"></label>
+    <div class="row">
+      <button type="button" class="danger grow" id="f-del" hidden>Skrap</button>
+      <button type="button" class="ghost" id="f-cancel">Kanselleer</button>
+      <button type="submit" id="f-save">Stoor</button>
+    </div>
+  </form>
+</div>
+
+<div class="sheet" id="bsheet" role="dialog" aria-modal="true" aria-labelledby="bt">
+  <form class="card" id="bform">
+    <h2 id="bt">Voeg baie vraestelle by</h2>
+    <p class="hint">Een vraestel per reël: vak, onderwyser, graad. Jy kan reguit uit ’n sigblad plak. Almal begin as Nie begin nie.</p>
+    <textarea id="b-text" placeholder="Wiskunde V1, Mev. Botha, 10&#10;Engels HT V2, Mnr. Naidoo, 12"></textarea>
+    <p class="hint" id="b-count"></p>
+    <div class="row">
+      <button type="button" class="ghost" id="b-cancel">Kanselleer</button>
+      <button type="submit">Voeg hulle by</button>
+    </div>
+  </form>
+</div>
+<div class="sheet" id="lsheet" role="dialog" aria-modal="true" aria-labelledby="lt">
+  <form class="card" id="lform">
+    <h2 id="lt">Admin aanmelding</h2>
+    <p class="hint">Net vir die admins wat die lys bywerk. Onderwysers hoef nie aan te meld nie.</p>
+    <label>Naam<input id="l-name" autocomplete="username" autocapitalize="none" required></label>
+    <label>Wagwoord<input id="l-pass" type="password" autocomplete="current-password" required></label>
+    <p class="err" id="l-err" role="status"></p>
+    <div class="row">
+      <button type="button" class="ghost" id="l-cancel">Kanselleer</button>
+      <button type="submit">Meld aan</button>
+    </div>
+  </form>
+</div>
+<datalist id="grades"><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option></datalist>
+
+<script type="module">
+{
+const STATUSES=[{k:"todo",t:"Nie begin nie",c:"var(--s0)"},{k:"typing",t:"Word getik",c:"var(--s1)"},{k:"done",t:"Klaar",c:"var(--s2)"},{k:"collected",t:"Afgehaal",c:"var(--s3)"}];
+const SI=Object.fromEntries(STATUSES.map((s,i)=>[s.k,i]));
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let rows=[],col=null,canEdit=false,filter="",editing=null,loaded=false;
+
+$("f-status").innerHTML=STATUSES.map(s=>`<option value="${s.k}">${s.t}</option>`).join("");
+
+function ago(ts){if(!ts)return"";const m=Math.round((Date.now()-ts)/60000);
+  if(m<1)return"so pas";if(m<60)return m+" min gelede";const h=Math.round(m/60);if(h<24)return h+" uur gelede";
+  return new Date(ts).toLocaleDateString("af-ZA",{day:"numeric",month:"short"})}
+
+function render(){
+  const n=rows.length,counts=STATUSES.map(s=>rows.filter(r=>(r.status||"todo")===s.k).length);
+  const finished=counts[2]+counts[3];
+  $("big").innerHTML=n?`${finished} of ${n}<small> gereed</small>`:"–<small></small>";
+  $("strip").innerHTML=n?STATUSES.map((s,i)=>`<i style="width:${counts[i]/n*100}%;background:${s.c}"></i>`).join(""):"";
+  $("tiles").innerHTML=STATUSES.map((s,i)=>`<button class="tile" data-f="${s.k}" aria-pressed="${filter===s.k}"><b>${counts[i]}</b><span><i class="dot" style="background:${s.c}"></i>${s.t}</span></button>`).join("");
+  const grades=[...new Set(rows.map(r=>String(r.grade||"")).filter(Boolean))].sort((a,b)=>(parseInt(a)||99)-(parseInt(b)||99)||a.localeCompare(b));
+  const gsel=$("grade"),gv=gsel.value;
+  gsel.innerHTML=`<option value="">Alle grade</option>`+grades.map(g=>`<option value="${esc(g)}">Graad ${esc(g)}</option>`).join("");
+  gsel.value=grades.includes(gv)?gv:"";
+  const q=$("q").value.trim().toLowerCase(),g=gsel.value;
+  const view=rows.filter(r=>(!filter||(r.status||"todo")===filter)&&(!g||String(r.grade)===g)&&
+    (!q||`${r.subject} ${r.teacher}`.toLowerCase().includes(q)))
+    .sort((a,b)=>SI[a.status||"todo"]-SI[b.status||"todo"]||(parseInt(a.grade)||99)-(parseInt(b.grade)||99)||String(a.subject).localeCompare(String(b.subject)));
+  if(!loaded)return;
+  if(!n){$("list").innerHTML=`<div class="empty">${canEdit?"Nog geen vraestelle nie. Gebruik <b>Voeg vraestel by</b> of <b>Voeg baie by</b> om die lys te begin.":"Nog geen vraestelle op die lys nie. Kyk later weer."}</div>`;return}
+  if(!view.length){$("list").innerHTML=`<div class="empty">Geen vraestelle pas nie. Probeer ’n ander naam of maak die filters skoon.</div>`;return}
+  $("list").innerHTML=`<table class="stack"><thead><tr><th>Vak</th><th>Onderwyser</th><th>Graad</th><th>Status</th><th>Opgedateer</th>${canEdit?"<th></th>":""}</tr></thead><tbody>`+
+    view.map(r=>{const s=STATUSES[SI[r.status||"todo"]]||STATUSES[0];
+      const st=canEdit?`<select data-st="${esc(r.id)}" aria-label="Status van ${esc(r.subject)}">${STATUSES.map(o=>`<option value="${o.k}"${o.k===s.k?" selected":""}>${o.t}</option>`).join("")}</select>`
+        :`<span class="pill"><i class="dot" style="background:${s.c}"></i>${s.t}</span>`;
+      return `<tr><td class="subj">${esc(r.subject)}${r.note?`<div class="note">${esc(r.note)}</div>`:""}</td><td>${esc(r.teacher)}</td><td>${esc(r.grade)}</td><td>${st}</td><td class="when">${ago(r.updatedAt)}</td>${canEdit?`<td><button class="ghost" data-ed="${esc(r.id)}">Wysig</button></td>`:""}</tr>`}).join("")+`</tbody></table>`;
+}
+
+function note(t,err){$("note").innerHTML=t?`<p class="msg${err?" err":""}">${esc(t)}</p>`:""}
+function failed(e){note(e&&e.status===401?"Jy is afgemeld. Meld weer aan en probeer weer.":"Daardie verandering is nie gestoor nie. Kyk jou verbinding en probeer weer.",true)}
+
+$("tiles").addEventListener("click",e=>{const b=e.target.closest("[data-f]");if(!b)return;filter=filter===b.dataset.f?"":b.dataset.f;render()});
+$("q").addEventListener("input",render);$("grade").addEventListener("change",render);
+
+$("list").addEventListener("change",async e=>{const id=e.target.dataset.st;if(!id||!col)return;
+  try{await col.doc(id).update({status:e.target.value,updatedAt:Date.now()});note("")}catch(err){failed(err)}});
+$("list").addEventListener("click",e=>{const id=e.target.dataset.ed;if(id)openForm(rows.find(r=>r.id===id))});
+
+function openForm(r){editing=r||null;$("ft").textContent=r?"Wysig vraestel":"Voeg ’n vraestel by";
+  $("f-subject").value=r?.subject||"";$("f-teacher").value=r?.teacher||"";$("f-grade").value=r?.grade||"";
+  $("f-status").value=r?.status||"todo";$("f-note").value=r?.note||"";$("f-del").hidden=!r;$("f-del").textContent="Skrap";
+  $("sheet").classList.add("on");$("f-subject").focus()}
+function closeAll(){$("sheet").classList.remove("on");$("bsheet").classList.remove("on")}
+$("add").onclick=()=>openForm();$("f-cancel").onclick=closeAll;$("b-cancel").onclick=closeAll;
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeAll();$("lsheet").classList.remove("on")}});
+for(const s of [$("sheet"),$("bsheet")])s.addEventListener("click",e=>{if(e.target===s)closeAll()});
+
+$("form").addEventListener("submit",async e=>{e.preventDefault();if(!col)return;
+  const d={subject:$("f-subject").value.trim(),teacher:$("f-teacher").value.trim(),grade:$("f-grade").value.trim(),
+    status:$("f-status").value,note:$("f-note").value.trim(),updatedAt:Date.now()};
+  if(!d.subject||!d.teacher||!d.grade)return;
+  $("f-save").disabled=true;
+  try{editing?await col.doc(editing.id).set(d):await col.add(d);closeAll();note("")}catch(err){failed(err)}
+  $("f-save").disabled=false});
+$("f-del").onclick=async()=>{const b=$("f-del");if(b.textContent==="Skrap"){b.textContent="Tik weer om te skrap";return}
+  try{await col.doc(editing.id).delete();closeAll();note("")}catch(err){failed(err)}};
+
+function parse(){return $("b-text").value.split(/\r?\n/).map(l=>l.split(/\t|,|;/).map(x=>x.trim())).filter(p=>p[0]).map(p=>({subject:p[0],teacher:p[1]||"",grade:p[2]||""}))}
+$("bulk").onclick=()=>{$("b-text").value="";$("b-count").textContent="";$("bsheet").classList.add("on");$("b-text").focus()};
+$("b-text").addEventListener("input",()=>{const n=parse().length;$("b-count").textContent=n?`${n} vraestel${n>1?"le":""} gereed om by te voeg.`:""});
+$("bform").addEventListener("submit",async e=>{e.preventDefault();const list=parse();if(!list.length||!col)return;
+  closeAll();note(`Voeg ${list.length} vraestelle by…`);
+  try{await col.addMany(list.map(p=>({...p,status:"todo",note:""})));note(`${list.length} vraestelle bygevoeg.`)}catch(err){failed(err)}});
+
+{
+  const api=async(path,opt={})=>{const r=await fetch("/api/"+path,{credentials:"same-origin",headers:{"content-type":"application/json"},...opt});
+    if(!r.ok){const e=new Error(r.status);e.status=r.status;throw e}return r.json()};
+  let admin=null,busy=false;
+  async function load(){if(busy)return;busy=true;
+    try{rows=await api("papers");loaded=true;if($("note").textContent.startsWith("Die lys kan"))note("");
+      $("foot").textContent=`Laas nagegaan ${new Date().toLocaleTimeString("af-ZA",{hour:"2-digit",minute:"2-digit"})}.`}
+    catch(e){loaded=true;note("Die lys kan nou nie gelaai word nie. Dit probeer vanself weer.",true)}
+    busy=false;render()}
+  const send=(path,method,body)=>api(path,{method,body:body&&JSON.stringify(body)}).then(r=>{load();return r}).catch(e=>{if(e.status===401)setAdmin(null);throw e});
+  col={add:d=>send("papers","POST",d),addMany:l=>send("papers","POST",l),
+    doc:id=>({set:d=>send("papers/"+id,"PATCH",d),update:d=>send("papers/"+id,"PATCH",d),delete:()=>send("papers/"+id,"DELETE")})};
+  function setAdmin(n){admin=n;canEdit=!!n;
+    $("add").hidden=$("bulk").hidden=!canEdit;
+    $("login").textContent=n?"Meld af":"Admin: meld aan";
+    $("who").textContent=n?`Aangemeld as ${n}`:"";
+    $("lede").textContent=canEdit?"Verander ’n status in die lys en almal sien dit dadelik.":"Vind jou vraestel deur jou naam in te tik. Die lys werk vanself by.";
+    render()}
+  $("login").onclick=async()=>{if(admin){await api("logout",{method:"POST"}).catch(()=>{});setAdmin(null);return}
+    $("l-err").textContent="";$("lsheet").classList.add("on");$("l-name").focus()};
+  $("l-cancel").onclick=()=>$("lsheet").classList.remove("on");
+  $("lsheet").addEventListener("click",e=>{if(e.target===$("lsheet"))$("lsheet").classList.remove("on")});
+  $("lform").addEventListener("submit",async e=>{e.preventDefault();$("l-err").textContent="";
+    try{const r=await api("login",{method:"POST",body:JSON.stringify({name:$("l-name").value,password:$("l-pass").value})});
+      $("l-pass").value="";$("lsheet").classList.remove("on");setAdmin(r.admin)}
+    catch(err){$("l-err").textContent="Die naam of wagwoord is verkeerd. Probeer weer."}});
+  api("me").then(r=>setAdmin(r.admin)).catch(()=>{});
+  load();
+  setInterval(()=>{if(!document.hidden)load()},20000);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)load()});
+}
+render();
+setInterval(()=>{if(loaded)render()},60000);
+}
+</script>
+</body>
+</html>
