@@ -1,5 +1,5 @@
-// TikSTER API on Cloudflare Pages Functions + D1.
-// Bindings / variables (Pages > Settings):
+// TikSTER API (Cloudflare Worker + D1).
+// Bindings / variables (Worker > Settings > Variables and Secrets):
 //   DB             D1 database binding
 //   ADMIN_USERS    secret, e.g.  "sam:long-password-1,mamma:long-password-2"
 //   SESSION_SECRET secret, any long random string

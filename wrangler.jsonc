@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tikster",
+  "main": "src/worker.js",
+  "compatibility_date": "2025-11-01",
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
+  // Wrangler creates this D1 database on the first deploy if it doesn't exist yet.
+  "d1_databases": [{ "binding": "DB", "database_name": "tikster" }],
+  "observability": { "enabled": true }
+}

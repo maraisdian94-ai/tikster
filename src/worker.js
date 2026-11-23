@@ -1,0 +1,13 @@
+// TikSTER Worker: /api/* goes to the API, everything else is the static page.
+import { onRequest } from "./api.js";
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    if (url.pathname.startsWith("/api/")) {
+      const path = url.pathname.slice(5).split("/").filter(Boolean);
+      return onRequest({ request, env, params: { path } });
+    }
+    return env.ASSETS.fetch(request);
+  },
+};
