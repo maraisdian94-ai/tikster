@@ -58,6 +58,11 @@ table{width:100%;border-collapse:collapse}
 th{text-align:left;font-size:14px;color:var(--mute);font-weight:700;padding:8px 10px;border-bottom:2px solid var(--line)}
 td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
 td.subj{font-weight:700}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+th button.sort{all:unset;cursor:pointer;display:inline-flex;gap:4px;align-items:center;min-height:32px}
+th button.sort:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+th[aria-sort] button.sort{color:var(--ink)}
+.date{white-space:nowrap}.stack td.date::before{color:var(--mute);font-weight:400}.late{color:var(--red);font-weight:700}.soon{color:light-dark(#9a6700,#ffcc1a);font-weight:700}
 .pill{display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border-radius:999px;background:var(--panel);font-weight:700;font-size:15px;white-space:nowrap}
 td select{min-height:40px;padding:6px 10px}
 .note{color:var(--mute);font-size:15px}
@@ -81,7 +86,7 @@ textarea{min-height:180px;resize:vertical}
 @media(max-width:600px){table{font-size:15px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px;border-bottom:1px solid var(--line)}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:6.5em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:6em;margin-inline-start:-6.5em;color:var(--mute);font-size:14px}.stack td:empty{display:none}}
 @media(prefers-reduced-motion:reduce){.strip i{transition:none}}
 </style>
-<script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true})</script>
+<script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=(c.closest('table').rows[0].cells[i]?.textContent||'').replace(/[▲▼]/g,'').trim()}}).observe(document,{childList:true,subtree:true})</script>
 </head>
 <body>
 <header class="hero"><div class="band">
@@ -101,6 +106,10 @@ textarea{min-height:180px;resize:vertical}
   <div class="bar">
     <input id="q" type="search" placeholder="Soek ’n onderwyser of vak" aria-label="Soek ’n onderwyser of vak">
     <select id="grade" aria-label="Graad"><option value="">Alle grade</option></select>
+    <select id="sort" aria-label="Sorteer volgens">
+      <option value="status">Sorteer: status</option><option value="deadline">Sorteer: sperdatum</option><option value="startDate">Sorteer: begindatum</option>
+      <option value="subject">Sorteer: vak</option><option value="teacher">Sorteer: onderwyser</option><option value="grade">Sorteer: graad</option>
+    </select>
     <button id="add" hidden>Voeg vraestel by</button>
     <button id="bulk" class="ghost" hidden>Voeg baie by</button>
   </div>
@@ -117,6 +126,7 @@ textarea{min-height:180px;resize:vertical}
     <label>Onderwyser<input id="f-teacher" required maxlength="80" placeholder="bv. Mev. Botha"></label>
     <label>Graad<input id="f-grade" required maxlength="10" list="grades" placeholder="bv. 10"></label>
     <label>Status<select id="f-status"></select></label>
+    <div class="two"><label>Begindatum<input id="f-start" type="date"></label><label>Sperdatum<input id="f-deadline" type="date"></label></div>
     <label>Nota (opsioneel)<input id="f-note" maxlength="140" placeholder="bv. Wag vir diagramme"></label>
     <div class="row">
       <button type="button" class="danger grow" id="f-del" hidden>Skrap</button>
@@ -130,7 +140,7 @@ textarea{min-height:180px;resize:vertical}
   <form class="card" id="bform">
     <button type="button" class="x" aria-label="Maak toe" title="Maak toe">&times;</button>
     <h2 id="bt">Voeg baie vraestelle by</h2>
-    <p class="hint">Een vraestel per reël: vak, onderwyser, graad. Jy kan reguit uit ’n sigblad plak. Almal begin as Nie begin nie.</p>
+    <p class="hint">Een vraestel per reël: vak, onderwyser, graad, en as jy wil ’n sperdatum (2026-12-01). Jy kan reguit uit ’n sigblad plak. Almal begin as Nie begin nie.</p>
     <textarea id="b-text" placeholder="Wiskunde V1, Mev. Botha, 10&#10;Engels HT V2, Mnr. Naidoo, 12"></textarea>
     <p class="hint" id="b-count"></p>
     <div class="row">
@@ -165,14 +175,26 @@ let rows=[],col=null,canEdit=false,filter="",editing=null,loaded=false;
 
 $("f-status").innerHTML=STATUSES.map(s=>`<option value="${s.k}">${s.t}</option>`).join("");
 
-function ago(ts){if(!ts)return"";const m=Math.round((Date.now()-ts)/60000);
-  if(m<1)return"so pas";if(m<60)return m+" min gelede";const h=Math.round(m/60);if(h<24)return h+" uur gelede";
-  return new Date(ts).toLocaleDateString("af-ZA",{day:"numeric",month:"short"})}
 
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
+const fmtDate=v=>v?new Date(v+"T12:00:00").toLocaleDateString("af-ZA",{day:"numeric",month:"short"}):"";
+const COLS=[["subject","Vak"],["teacher","Onderwyser"],["grade","Graad"],["status","Status"],["startDate","Begin"],["deadline","Sperdatum"]];
+let sortKey="status",sortDir=1;
+try{const v=JSON.parse(localStorage.getItem("tikSort")||"null");if(v&&COLS.some(c=>c[0]===v.k)){sortKey=v.k;sortDir=v.d===-1?-1:1}}catch(e){}
+function cmp(a,b){const k=sortKey;let x,y;
+  if(k==="status"){x=SI[a.status||"todo"];y=SI[b.status||"todo"]}
+  else if(k==="grade"){x=parseInt(a.grade)||99;y=parseInt(b.grade)||99}
+  else{x=String(a[k]||"").toLowerCase();y=String(b[k]||"").toLowerCase();
+    if(!x!==!y)return x?-1:1}            // empty dates and names always last
+  const r=x<y?-1:x>y?1:0;
+  return r*sortDir||String(a.deadline||"9").localeCompare(String(b.deadline||"9"))||String(a.subject).localeCompare(String(b.subject))}
+// Deadline colour: red when passed, amber within 3 days, only while the paper isn't finished.
+function dl(r){if(!r.deadline||r.status==="done"||r.status==="collected")return"";const t=today();
+  if(r.deadline<t)return" late";const d=(new Date(r.deadline+"T12:00:00")-new Date(t+"T12:00:00"))/864e5;return d<=3?" soon":""}
 function render(){
   const n=rows.length,counts=STATUSES.map(s=>rows.filter(r=>(r.status||"todo")===s.k).length);
   const finished=counts[2]+counts[3];
-  $("big").innerHTML=n?`${finished} of ${n}<small> gereed</small>`:"–<small></small>";
+  $("big").innerHTML=n?`${finished} van ${n}<small> gereed</small>`:"–<small></small>";
   $("strip").innerHTML=n?STATUSES.map((s,i)=>`<i style="width:${counts[i]/n*100}%;background:${s.c}"></i>`).join(""):"";
   $("tiles").innerHTML=STATUSES.map((s,i)=>`<button class="tile" data-f="${s.k}" aria-pressed="${filter===s.k}"><b>${counts[i]}</b><span><i class="dot" style="background:${s.c}"></i>${s.t}</span></button>`).join("");
   const grades=[...new Set(rows.map(r=>String(r.grade||"")).filter(Boolean))].sort((a,b)=>(parseInt(a)||99)-(parseInt(b)||99)||a.localeCompare(b));
@@ -182,37 +204,43 @@ function render(){
   const q=$("q").value.trim().toLowerCase(),g=gsel.value;
   const view=rows.filter(r=>(!filter||(r.status||"todo")===filter)&&(!g||String(r.grade)===g)&&
     (!q||`${r.subject} ${r.teacher}`.toLowerCase().includes(q)))
-    .sort((a,b)=>SI[a.status||"todo"]-SI[b.status||"todo"]||(parseInt(a.grade)||99)-(parseInt(b.grade)||99)||String(a.subject).localeCompare(String(b.subject)));
+    .sort(cmp);
+  $("sort").value=sortKey;
   if(!loaded)return;
   if(!n){$("list").innerHTML=`<div class="empty">${canEdit?"Nog geen vraestelle nie. Gebruik <b>Voeg vraestel by</b> of <b>Voeg baie by</b> om die lys te begin.":"Nog geen vraestelle op die lys nie. Kyk later weer."}</div>`;return}
   if(!view.length){$("list").innerHTML=`<div class="empty">Geen vraestelle pas nie. Probeer ’n ander naam of maak die filters skoon.</div>`;return}
-  $("list").innerHTML=`<table class="stack"><thead><tr><th>Vak</th><th>Onderwyser</th><th>Graad</th><th>Status</th><th>Opgedateer</th>${canEdit?"<th></th>":""}</tr></thead><tbody>`+
+  $("list").innerHTML=`<table class="stack"><thead><tr>${COLS.map(([k,t])=>`<th${k===sortKey?` aria-sort="${sortDir>0?"ascending":"descending"}"`:""}><button class="sort" data-sort="${k}">${t}${k===sortKey?(sortDir>0?" ▲":" ▼"):""}</button></th>`).join("")}${canEdit?"<th></th>":""}</tr></thead><tbody>`+
     view.map(r=>{const s=STATUSES[SI[r.status||"todo"]]||STATUSES[0];
       const st=canEdit?`<select data-st="${esc(r.id)}" aria-label="Status van ${esc(r.subject)}">${STATUSES.map(o=>`<option value="${o.k}"${o.k===s.k?" selected":""}>${o.t}</option>`).join("")}</select>`
         :`<span class="pill"><i class="dot" style="background:${s.c}"></i>${s.t}</span>`;
-      return `<tr><td class="subj">${esc(r.subject)}${r.note?`<div class="note">${esc(r.note)}</div>`:""}</td><td>${esc(r.teacher)}</td><td>${esc(r.grade)}</td><td>${st}</td><td class="when">${ago(r.updatedAt)}</td>${canEdit?`<td><button class="ghost" data-ed="${esc(r.id)}">Wysig</button></td>`:""}</tr>`}).join("")+`</tbody></table>`;
+      return `<tr><td class="subj">${esc(r.subject)}${r.note?`<div class="note">${esc(r.note)}</div>`:""}</td><td>${esc(r.teacher)}</td><td>${esc(r.grade)}</td><td>${st}</td><td class="date">${fmtDate(r.startDate)}</td><td class="date${dl(r)}">${fmtDate(r.deadline)}${dl(r)===" late"?" (laat)":""}</td>${canEdit?`<td><button class="ghost" data-ed="${esc(r.id)}">Wysig</button></td>`:""}</tr>`}).join("")+`</tbody></table>`;
 }
 
 function note(t,err){$("note").innerHTML=t?`<p class="msg${err?" err":""}">${esc(t)}</p>`:""}
 function failed(e){note(e&&e.status===401?"Jy is afgemeld. Meld weer aan en probeer weer.":"Daardie verandering is nie gestoor nie. Kyk jou verbinding en probeer weer.",true)}
 
 $("tiles").addEventListener("click",e=>{const b=e.target.closest("[data-f]");if(!b)return;filter=filter===b.dataset.f?"":b.dataset.f;render()});
-$("q").addEventListener("input",render);$("grade").addEventListener("change",render);
+$("q").addEventListener("input",render);
+function setSort(k,d){sortKey=k;sortDir=d;try{localStorage.setItem("tikSort",JSON.stringify({k,d}))}catch(e){}render()}
+$("sort").addEventListener("change",e=>setSort(e.target.value,1));$("grade").addEventListener("change",render);
 
 $("list").addEventListener("change",async e=>{const id=e.target.dataset.st;if(!id||!col)return;
-  try{await col.doc(id).update({status:e.target.value,updatedAt:Date.now()});note("")}catch(err){failed(err)}});
-$("list").addEventListener("click",e=>{const id=e.target.dataset.ed;if(id)openForm(rows.find(r=>r.id===id))});
+  const r=rows.find(x=>x.id===id),upd={status:e.target.value,updatedAt:Date.now()};
+  if(upd.status!=="todo"&&r&&!r.startDate)upd.startDate=today();
+  try{await col.doc(id).update(upd);note("")}catch(err){failed(err)}});
+$("list").addEventListener("click",e=>{const sb=e.target.closest("[data-sort]");if(sb){const k=sb.dataset.sort;setSort(k,k===sortKey?-sortDir:1);return}
+  const id=e.target.dataset.ed;if(id)openForm(rows.find(r=>r.id===id))});
 
 function openForm(r){editing=r||null;$("ft").textContent=r?"Wysig vraestel":"Voeg ’n vraestel by";
   $("f-subject").value=r?.subject||"";$("f-teacher").value=r?.teacher||"";$("f-grade").value=r?.grade||"";
-  $("f-status").value=r?.status||"todo";$("f-note").value=r?.note||"";$("f-del").hidden=!r;$("f-del").textContent="Skrap";
+  $("f-status").value=r?.status||"todo";$("f-note").value=r?.note||"";$("f-start").value=r?.startDate||"";$("f-deadline").value=r?.deadline||"";$("f-del").hidden=!r;$("f-del").textContent="Skrap";
   formStart=formState();$("sheet").classList.add("on");$("f-subject").focus()}
 function closeAll(){$("sheet").classList.remove("on");$("bsheet").classList.remove("on")}
 $("add").onclick=()=>openForm();$("f-cancel").onclick=closeAll;$("b-cancel").onclick=closeAll;
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeAll();$("lsheet").classList.remove("on")}});
 for(const s of [$("sheet"),$("bsheet")])s.addEventListener("click",e=>{if(e.target===s)closeAll()});
 // X on the paper form and the bulk form saves any changes, then closes. X on sign-in just closes.
-const formState=()=>["f-subject","f-teacher","f-grade","f-status","f-note"].map(i=>$(i).value.trim()).join("\u0001");
+const formState=()=>["f-subject","f-teacher","f-grade","f-status","f-note","f-start","f-deadline"].map(i=>$(i).value.trim()).join("\u0001");
 let formStart="";
 $("sheet").querySelector("button.x").addEventListener("click",()=>{if(formState()!==formStart)$("form").requestSubmit();else closeAll()});
 $("bsheet").querySelector("button.x").addEventListener("click",()=>{if(parse().length)$("bform").requestSubmit();else closeAll()});
@@ -220,7 +248,8 @@ $("lsheet").querySelector("button.x").addEventListener("click",()=>$("lsheet").c
 
 $("form").addEventListener("submit",async e=>{e.preventDefault();if(!col)return;
   const d={subject:$("f-subject").value.trim(),teacher:$("f-teacher").value.trim(),grade:$("f-grade").value.trim(),
-    status:$("f-status").value,note:$("f-note").value.trim(),updatedAt:Date.now()};
+    status:$("f-status").value,note:$("f-note").value.trim(),startDate:$("f-start").value,deadline:$("f-deadline").value,updatedAt:Date.now()};
+  if(d.status!=="todo"&&!d.startDate)d.startDate=today();
   if(!d.subject||!d.teacher||!d.grade)return;
   $("f-save").disabled=true;
   try{editing?await col.doc(editing.id).set(d):await col.add(d);closeAll();note("")}catch(err){failed(err)}
@@ -228,7 +257,7 @@ $("form").addEventListener("submit",async e=>{e.preventDefault();if(!col)return;
 $("f-del").onclick=async()=>{const b=$("f-del");if(b.textContent==="Skrap"){b.textContent="Tik weer om te skrap";return}
   try{await col.doc(editing.id).delete();closeAll();note("")}catch(err){failed(err)}};
 
-function parse(){return $("b-text").value.split(/\r?\n/).map(l=>l.split(/\t|,|;/).map(x=>x.trim())).filter(p=>p[0]).map(p=>({subject:p[0],teacher:p[1]||"",grade:p[2]||""}))}
+function parse(){return $("b-text").value.split(/\r?\n/).map(l=>l.split(/\t|,|;/).map(x=>x.trim())).filter(p=>p[0]).map(p=>({subject:p[0],teacher:p[1]||"",grade:p[2]||"",deadline:/^\d{4}-\d{2}-\d{2}$/.test(p[3]||"")?p[3]:""}))}
 $("bulk").onclick=()=>{$("b-text").value="";$("b-count").textContent="";$("bsheet").classList.add("on");$("b-text").focus()};
 $("b-text").addEventListener("input",()=>{const n=parse().length;$("b-count").textContent=n?`${n} vraestel${n>1?"le":""} gereed om by te voeg.`:""});
 $("bform").addEventListener("submit",async e=>{e.preventDefault();const list=parse();if(!list.length||!col)return;

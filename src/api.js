@@ -46,7 +46,13 @@ async function init(db) {
   if (ready) return;
   await db.prepare(`CREATE TABLE IF NOT EXISTS papers (
     id TEXT PRIMARY KEY, subject TEXT NOT NULL, teacher TEXT NOT NULL, grade TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'todo', note TEXT NOT NULL DEFAULT '', updatedAt INTEGER NOT NULL)`).run();
+    status TEXT NOT NULL DEFAULT 'todo', note TEXT NOT NULL DEFAULT '', updatedAt INTEGER NOT NULL,
+    startDate TEXT NOT NULL DEFAULT '', deadline TEXT NOT NULL DEFAULT '')`).run();
+  // Older databases: add the date columns if they're missing.
+  const { results } = await db.prepare("PRAGMA table_info(papers)").all();
+  const have = new Set(results.map(c => c.name));
+  for (const c of ["startDate", "deadline"])
+    if (!have.has(c)) await db.prepare(`ALTER TABLE papers ADD COLUMN ${c} TEXT NOT NULL DEFAULT ''`).run();
   ready = true;
 }
 const clip = (v, n) => String(v ?? "").trim().slice(0, n);
@@ -54,6 +60,8 @@ function clean(p, partial) {
   const o = {};
   for (const [k, n] of [["subject", 80], ["teacher", 80], ["grade", 10], ["note", 140]])
     if (!partial || k in p) o[k] = clip(p[k], n);
+  for (const k of ["startDate", "deadline"]) // "YYYY-MM-DD" or empty
+    if (!partial || k in p) o[k] = /^\d{4}-\d{2}-\d{2}$/.test(String(p[k] ?? "")) ? p[k] : "";
   if (!partial || "status" in p) o.status = STATUSES.includes(p.status) ? p.status : "todo";
   if (!partial && (!o.subject || !o.teacher || !o.grade)) return null;
   return o;
@@ -99,8 +107,8 @@ async function change(request, env, path, method) {
     const body = await request.json().catch(() => null);
     const list = (Array.isArray(body) ? body : [body]).slice(0, 300).map(p => clean(p || {}, false));
     if (!list.length || list.some(p => !p)) return json({ error: "subject, teacher and grade are required" }, 400);
-    const stmt = env.DB.prepare("INSERT INTO papers (id,subject,teacher,grade,status,note,updatedAt) VALUES (?,?,?,?,?,?,?)");
-    await env.DB.batch(list.map(p => stmt.bind(crypto.randomUUID(), p.subject, p.teacher, p.grade, p.status, p.note, now)));
+    const stmt = env.DB.prepare("INSERT INTO papers (id,subject,teacher,grade,status,note,startDate,deadline,updatedAt) VALUES (?,?,?,?,?,?,?,?,?)");
+    await env.DB.batch(list.map(p => stmt.bind(crypto.randomUUID(), p.subject, p.teacher, p.grade, p.status, p.note, p.startDate, p.deadline, now)));
     return json({ added: list.length });
   }
   const m = path.match(/^papers\/([\w-]{1,64})$/);
