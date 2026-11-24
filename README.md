@@ -19,5 +19,7 @@ Build command: none. Deploy command: `npx wrangler deploy`. Root directory: `/`.
 
 Changing a password: edit `ADMIN_USERS` and click Deploy. Changing `SESSION_SECRET` signs everyone out.
 
+Admin sessions end when the browser or tab is closed, or after 15 minutes without activity (`IDLE` in `src/api.js`, `IDLE_MS` in `public/index.html`).
+
 ## Local test
 Create `.dev.vars` with the two secrets, then `npx wrangler dev`.

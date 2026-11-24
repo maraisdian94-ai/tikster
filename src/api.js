@@ -4,7 +4,15 @@
 //   ADMIN_USERS    secret, e.g.  "sam:long-password-1,mamma:long-password-2"
 //   SESSION_SECRET secret, any long random string
 const STATUSES = ["todo", "typing", "done", "collected"];
-const DAY = 86400;
+const IDLE = 15 * 60; // seconds: admins are signed out after 15 minutes without activity
+
+// A session cookie (no Max-Age) is dropped when the browser closes; the signed expiry
+// inside it ends the session after IDLE seconds unless activity renews it.
+async function sessionCookie(env, name) {
+  const exp = Math.floor(Date.now() / 1000) + IDLE;
+  const val = `${name}.${exp}.${await hmac(env.SESSION_SECRET, `${name}.${exp}`)}`;
+  return `tik=${encodeURIComponent(val)}; Path=/; HttpOnly; Secure; SameSite=Strict`;
+}
 
 const json = (data, status = 200, headers = {}) =>
   new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json", "cache-control": "no-store", ...headers } });
@@ -61,22 +69,30 @@ export async function onRequest({ request, env, params }) {
     const { results } = await env.DB.prepare("SELECT * FROM papers").all();
     return json(results);
   }
-  if (path === "me") return json({ admin: await who(request, env) });
+  if (path === "me") { // also renews the 15-minute window
+    const name = await who(request, env);
+    return json({ admin: name, idle: IDLE }, 200, name ? { "set-cookie": await sessionCookie(env, name) } : {});
+  }
 
   if (path === "login" && method === "POST") {
     const body = await request.json().catch(() => ({}));
     const name = clip(body.name, 120).toLowerCase(), pass = String(body.password || "");
     const ok = admins(env).find(a => a.name === name && same(a.pass, pass));
     if (!ok || !env.SESSION_SECRET) { await new Promise(r => setTimeout(r, 600)); return json({ error: "bad login" }, 401); }
-    const exp = Math.floor(Date.now() / 1000) + 30 * DAY;
-    const val = `${name}.${exp}.${await hmac(env.SESSION_SECRET, `${name}.${exp}`)}`;
-    return json({ admin: name }, 200, { "set-cookie": `tik=${encodeURIComponent(val)}; Path=/; Max-Age=${30 * DAY}; HttpOnly; Secure; SameSite=Strict` });
+    return json({ admin: name, idle: IDLE }, 200, { "set-cookie": await sessionCookie(env, name) });
   }
   if (path === "logout" && method === "POST")
     return json({ admin: null }, 200, { "set-cookie": "tik=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict" });
 
   // Everything below changes data: admins only.
-  if (!(await who(request, env))) return json({ error: "not signed in" }, 401);
+  const admin = await who(request, env);
+  if (!admin) return json({ error: "not signed in" }, 401);
+  const res = await change(request, env, path, method);
+  res.headers.append("set-cookie", await sessionCookie(env, admin)); // a change counts as activity
+  return res;
+}
+
+async function change(request, env, path, method) {
   const now = Date.now();
 
   if (path === "papers" && method === "POST") {

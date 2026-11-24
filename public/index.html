@@ -241,15 +241,30 @@ $("bform").addEventListener("submit",async e=>{e.preventDefault();const list=par
     $("who").textContent=n?`Aangemeld as ${n}`:"";
     $("lede").textContent=canEdit?"Verander ’n status in die lys en almal sien dit dadelik.":"Vind jou vraestel deur jou naam in te tik. Die lys werk vanself by.";
     render()}
-  $("login").onclick=async()=>{if(admin){await api("logout",{method:"POST"}).catch(()=>{});setAdmin(null);return}
+  // Admin sessions end when the tab or browser closes, or after 15 minutes without activity.
+  const IDLE_MS=15*60*1000,RENEW_MS=2*60*1000;
+  const ss={get:()=>{try{return sessionStorage.getItem("tikAdmin")}catch(e){return null}},
+    set:v=>{try{v?sessionStorage.setItem("tikAdmin","1"):sessionStorage.removeItem("tikAdmin")}catch(e){}}};
+  let lastAct=Date.now(),lastRenew=Date.now();
+  async function logout(msg){ss.set(false);await api("logout",{method:"POST"}).catch(()=>{});setAdmin(null);if(msg)note(msg)}
+  function activity(){
+    if(admin&&Date.now()-lastAct>IDLE_MS){logout("Jy is afgemeld ná 15 minute sonder aktiwiteit. Meld weer aan om voort te gaan.");return}
+    lastAct=Date.now();
+    if(admin&&lastAct-lastRenew>RENEW_MS){lastRenew=lastAct;api("me").then(r=>{if(!r.admin){ss.set(false);setAdmin(null)}}).catch(()=>{})}
+  }
+  for(const ev of ["pointerdown","keydown","scroll","touchstart","mousemove"])addEventListener(ev,activity,{passive:true});
+  setInterval(()=>{if(admin&&Date.now()-lastAct>IDLE_MS)logout("Jy is afgemeld ná 15 minute sonder aktiwiteit. Meld weer aan om voort te gaan.")},15000);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden&&admin&&Date.now()-lastAct>IDLE_MS)logout("Jy is afgemeld ná 15 minute sonder aktiwiteit. Meld weer aan om voort te gaan.")});
+  $("login").onclick=async()=>{if(admin){logout();return}
     $("l-err").textContent="";$("lsheet").classList.add("on");$("l-name").focus()};
   $("l-cancel").onclick=()=>$("lsheet").classList.remove("on");
   $("lsheet").addEventListener("click",e=>{if(e.target===$("lsheet"))$("lsheet").classList.remove("on")});
   $("lform").addEventListener("submit",async e=>{e.preventDefault();$("l-err").textContent="";
     try{const r=await api("login",{method:"POST",body:JSON.stringify({name:$("l-name").value,password:$("l-pass").value})});
-      $("l-pass").value="";$("lsheet").classList.remove("on");setAdmin(r.admin)}
+      $("l-pass").value="";$("lsheet").classList.remove("on");ss.set(true);lastAct=lastRenew=Date.now();setAdmin(r.admin);note("")}
     catch(err){$("l-err").textContent="Die naam of wagwoord is verkeerd. Probeer weer."}});
-  api("me").then(r=>setAdmin(r.admin)).catch(()=>{});
+  // A sign-in from a tab that has since been closed doesn't carry over to a new tab.
+  api("me").then(r=>{if(r.admin&&!ss.get())logout();else setAdmin(r.admin)}).catch(()=>{});
   load();
   setInterval(()=>{if(!document.hidden)load()},20000);
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)load()});
