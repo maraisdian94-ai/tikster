@@ -68,6 +68,9 @@ td select{min-height:40px;padding:6px 10px}
 .sheet{position:fixed;inset:0;background:rgb(0 0 0 / .45);display:none;align-items:center;justify-content:center;padding:16px;z-index:5}
 .sheet.on{display:flex}
 .card{background:var(--bg);border-radius:16px;padding:22px;width:min(520px,100%);max-height:92vh;overflow:auto;display:grid;gap:12px}
+.card{position:relative}.card h2{padding-right:44px}
+button.x{position:absolute;top:10px;right:10px;width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--ink);font-size:30px;line-height:1;font-weight:400}
+button.x:hover{background:var(--panel)}
 .card label{display:grid;gap:4px;font-weight:700;font-size:15px}
 .row{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end}
 .row .grow{margin-right:auto}
@@ -108,6 +111,7 @@ textarea{min-height:180px;resize:vertical}
 
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="ft">
   <form class="card" id="form">
+    <button type="button" class="x" aria-label="Maak toe" title="Maak toe">&times;</button>
     <h2 id="ft">Voeg ’n vraestel by</h2>
     <label>Vak<input id="f-subject" required maxlength="80" placeholder="bv. Wiskunde Vraestel 1"></label>
     <label>Onderwyser<input id="f-teacher" required maxlength="80" placeholder="bv. Mev. Botha"></label>
@@ -124,6 +128,7 @@ textarea{min-height:180px;resize:vertical}
 
 <div class="sheet" id="bsheet" role="dialog" aria-modal="true" aria-labelledby="bt">
   <form class="card" id="bform">
+    <button type="button" class="x" aria-label="Maak toe" title="Maak toe">&times;</button>
     <h2 id="bt">Voeg baie vraestelle by</h2>
     <p class="hint">Een vraestel per reël: vak, onderwyser, graad. Jy kan reguit uit ’n sigblad plak. Almal begin as Nie begin nie.</p>
     <textarea id="b-text" placeholder="Wiskunde V1, Mev. Botha, 10&#10;Engels HT V2, Mnr. Naidoo, 12"></textarea>
@@ -136,6 +141,7 @@ textarea{min-height:180px;resize:vertical}
 </div>
 <div class="sheet" id="lsheet" role="dialog" aria-modal="true" aria-labelledby="lt">
   <form class="card" id="lform">
+    <button type="button" class="x" aria-label="Maak toe" title="Maak toe">&times;</button>
     <h2 id="lt">Admin aanmelding</h2>
     <p class="hint">Net vir die admins wat die lys bywerk. Onderwysers hoef nie aan te meld nie.</p>
     <label>Naam of e-pos<input id="l-name" autocomplete="username" autocapitalize="none" required></label>
@@ -200,11 +206,17 @@ $("list").addEventListener("click",e=>{const id=e.target.dataset.ed;if(id)openFo
 function openForm(r){editing=r||null;$("ft").textContent=r?"Wysig vraestel":"Voeg ’n vraestel by";
   $("f-subject").value=r?.subject||"";$("f-teacher").value=r?.teacher||"";$("f-grade").value=r?.grade||"";
   $("f-status").value=r?.status||"todo";$("f-note").value=r?.note||"";$("f-del").hidden=!r;$("f-del").textContent="Skrap";
-  $("sheet").classList.add("on");$("f-subject").focus()}
+  formStart=formState();$("sheet").classList.add("on");$("f-subject").focus()}
 function closeAll(){$("sheet").classList.remove("on");$("bsheet").classList.remove("on")}
 $("add").onclick=()=>openForm();$("f-cancel").onclick=closeAll;$("b-cancel").onclick=closeAll;
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeAll();$("lsheet").classList.remove("on")}});
 for(const s of [$("sheet"),$("bsheet")])s.addEventListener("click",e=>{if(e.target===s)closeAll()});
+// X on the paper form and the bulk form saves any changes, then closes. X on sign-in just closes.
+const formState=()=>["f-subject","f-teacher","f-grade","f-status","f-note"].map(i=>$(i).value.trim()).join("\u0001");
+let formStart="";
+$("sheet").querySelector("button.x").addEventListener("click",()=>{if(formState()!==formStart)$("form").requestSubmit();else closeAll()});
+$("bsheet").querySelector("button.x").addEventListener("click",()=>{if(parse().length)$("bform").requestSubmit();else closeAll()});
+$("lsheet").querySelector("button.x").addEventListener("click",()=>$("lsheet").classList.remove("on"));
 
 $("form").addEventListener("submit",async e=>{e.preventDefault();if(!col)return;
   const d={subject:$("f-subject").value.trim(),teacher:$("f-teacher").value.trim(),grade:$("f-grade").value.trim(),
